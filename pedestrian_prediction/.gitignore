@@ -1,0 +1,9 @@
+*.swp
+*.pyc
+*.pyo
+*.html
+tags
+output/
+.ipynb_checkpoints
+*.ipynb
+*.lprof
