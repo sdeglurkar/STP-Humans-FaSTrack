@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-import queue
+import Queue
 
 def forwards_value_iter(mdp, goal_state, *args, **kwargs):
     kwargs["forwards"] = True

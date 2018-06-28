@@ -1,5 +1,6 @@
+#!/usr/bin/env python
+
 import matplotlib.pyplot as plt
-from IPython import display
 import math
 import numpy as np
 

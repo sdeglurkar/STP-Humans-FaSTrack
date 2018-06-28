@@ -19,7 +19,8 @@ else:
 
 val_default = val_hardmax
 
-from .inference import hardmax
+#from .inference import hardmax
+import inference
 if 'pp.inference.hardmax' in sys.modules:
     inf_default = sys.modules['pp.inference.hardmax']
 else:
