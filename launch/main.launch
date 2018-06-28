@@ -1,0 +1,11 @@
+<launch>
+
+  <group ns="human">
+    <node pkg="stp_humans_fastrack" name="test" type="human.py"/>
+  </group>
+
+  <group ns="STP_human">
+    <node pkg="stp_humans_fastrack" name="test" type="STP_human.py"/>
+  </group>
+
+</launch>

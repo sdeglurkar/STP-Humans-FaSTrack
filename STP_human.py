@@ -104,9 +104,21 @@ class STP_Human:
 	def human_callback(self, msg):
 		x = msg.x
 		y = msg.y
-		rospy.loginfo(str(x) + " " + str(y))
-		self.global_time += rospy.get_time() - self.time_counter
-		if math.fabs((rospy.get_time() - self.time_counter) - self.deltat) < 0.001:
+		t = rospy.get_time() - self.time_counter
+		self.global_time += t
+		
+		#pub = rospy.Publisher('robot_pose', Point, queue_size=10)
+    	#rospy.init_node('robot_pose_giver', anonymous=True)
+    	#rate = rospy.Rate(10) # 10hz
+    	#while not rospy.is_shutdown():
+    	#	pose = Point()
+    	#	pose.x, pose.y = plan_point[0], plan_point[1]
+    	#	pose.z = 0.0
+    	#	rospy.loginfo(pose)
+    	#	pub.publish(pose)
+    	#	rate.sleep()
+    			
+		if math.fabs(t - self.deltat) < 0.1:	
 			self.obstacle_traj.append((x, y))
 			rospy.loginfo("Human is at (" + str(x) + "," + str(y) + ") at time " + str(self.global_time))
 			#print("Human is at ", (x,y), " at time ", self.global_time)
@@ -126,8 +138,7 @@ class STP_Human:
 		
 	
 			for i in range(len(self.planners)):
-				rospy.loginfo("Robot " + str(i) + " is at (" + str(self.planners[i].curr_pos[0]) + "," + \
-					str(self.planners[i].curr_pos[1]) + ") at time " + str(self.global_time))
+				rospy.loginfo("Robot " + str(i) + " is at (" + str(self.planners[i].curr_pos[0]) + "," + str(self.planners[i].curr_pos[1]) + ") at time " + str(self.global_time))
  				#print("Robot ", i, " is at ", self.planners[i].curr_pos, " at time ", self.global_time)
 	
 			if self.show_animation:
@@ -166,7 +177,7 @@ class STP_Human:
 			robot_trajs = []
 			robot0_traj = self.planners[0].plan_traj(self.robot_goals[0], obmaps, self.collision_threshold)
 			robot_trajs.append(robot0_traj)
-			obmaps.append(traj_to_obmap(robot0_traj, self.planners[0].robot_size, self.tracking_error_bounds[0]))
+			obmaps.append(self.traj_to_obmap(robot0_traj, self.planners[0].robot_size, self.tracking_error_bounds[0]))
 
 			for i in range(len(self.planners) - 1):
 				robot_traj = self.planners[i + 1].plan_traj(self.robot_goals[i + 1], obmaps, self.collision_threshold)
@@ -175,23 +186,41 @@ class STP_Human:
 
 			for i in range(len(self.planners)):
 				self.robot_follow_plan(self.planners[i], robot_trajs[i], self.deltat)
+				
+			#for i in range(len(self.planners)):
+				#self.give_plans(self.planners[i].curr_pos)
+				#self.give_plans([5, 5])
+
 
 			#t += dt
 			self.time_counter = rospy.get_time()
-
-
-
+		
+		
 		if self.show_animation:
-			plt.show()
+			plt.show()	
+			
+			
+			
+	#def give_plans(self, plan_point):
+	#	pub = rospy.Publisher('robot_pose', Point, queue_size=10)
+    #	rospy.init_node('robot_pose_giver', anonymous=True)
+    #	rate = rospy.Rate(10) # 10hz
+    #	while not rospy.is_shutdown():
+    #		pose = Point()
+    #		pose.x, pose.y = plan_point[0], plan_point[1]
+    #		pose.z = 0.0
+    #		rospy.loginfo(pose)
+    #		pub.publish(pose)
+    #		rate.sleep()
 
 
 
 if __name__ == '__main__':
     try:
     	STPHuman = STP_Human()
+    	#STPHuman.give_plans([5, 5])
     	STPHuman.get_human_pose()
     except rospy.ROSInterruptException:
         pass
-
 
 

@@ -147,8 +147,8 @@ class AStarPlanner:
                         return True
 
 
-        prev_t = math.floor(node.tstamp) #planning for a time that is in between time stamps in the obmap: interpolation
-        next_t = math.ceil(node.tstamp)
+        prev_t = int(math.floor(node.tstamp)) #planning for a time that is in between time stamps in the obmap: interpolation
+        next_t = int(math.ceil(node.tstamp))
         low_grid = obmap[prev_t]
         high_grid = obmap[next_t]
         interpolated_obstacle_grid = np.zeros((self.grid_length, self.grid_width))
