@@ -63,7 +63,7 @@ class STP_Human:
 	def get_human_pose(self): 
 		rospy.init_node('human_pose_listener', anonymous=True)
 		self.time_counter = rospy.get_time()
-		rospy.Subscriber('human_pose', Point, self.human_callback)
+		rospy.Subscriber('human_pose', Point, self.give_plans)
 		rospy.spin()
 
 
@@ -201,26 +201,40 @@ class STP_Human:
 			
 			
 			
-	#def give_plans(self, plan_point):
-	#	pub = rospy.Publisher('robot_pose', Point, queue_size=10)
-    #	rospy.init_node('robot_pose_giver', anonymous=True)
-    #	rate = rospy.Rate(10) # 10hz
-    #	while not rospy.is_shutdown():
-    #		pose = Point()
-    #		pose.x, pose.y = plan_point[0], plan_point[1]
-    #		pose.z = 0.0
-    #		rospy.loginfo(pose)
-    #		pub.publish(pose)
-    #		rate.sleep()
+	def give_plans(self, msg):
+		rospy.loginfo("Yay!")
+		
+
+
+		#pub = rospy.Publisher('robot_pose', Point, queue_size=10)
+    	##rospy.init_node('robot_pose_giver', anonymous=True)
+    	#pose = Point()
+    	#pose.x = 5
+    	#pose.y = 5
+    	#pose.z = 0.0
+    	#rospy.loginfo(pose)
+    	#rospy.Publisher('robot_pose', Point, queue_size=10).publish(pose)
+    	##rate = rospy.Rate(10) # 10hz
+    	##while not rospy.is_shutdown():
+    	##	pose = Point()
+    	##	#pose.x, pose.y = plan_point[0], plan_point[1]
+    	##	pose.x = 5
+    	##	pose.y = 5
+    	##	pose.z = 0.0
+    	##	rospy.loginfo(pose)
+    	##	pub.publish(pose)
+    	##	rate.sleep()
 
 
 
 if __name__ == '__main__':
     try:
     	STPHuman = STP_Human()
-    	#STPHuman.give_plans([5, 5])
+    	#STPHuman.give_plans()
     	STPHuman.get_human_pose()
     except rospy.ROSInterruptException:
         pass
+
+
 
 

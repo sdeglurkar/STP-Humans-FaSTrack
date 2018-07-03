@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <node pkg="stp_humans_fastrack" name="dummy_node" type="Dummy.py"/>
+    <node pkg="stp_humans_fastrack" name="dummy_doer_node" type="DummyDoer.py"/>
+
+    <node pkg="tf" name="world_publisher" type="static_transform_publisher" args="0 0 0 0 0 0 1 world my_frame 100"/>
+
+</launch>
