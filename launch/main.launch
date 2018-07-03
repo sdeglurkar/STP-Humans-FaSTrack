@@ -1,11 +1,11 @@
+<?xml version="1.0"?>
+
 <launch>
 
-  <group ns="human">
-    <node pkg="stp_humans_fastrack" name="test" type="human.py"/>
-  </group>
+    <node pkg="stp_humans_fastrack" name="human_node" type="human.py"/>
+    <node pkg="stp_humans_fastrack" name="STP_human_node" type="STP_human.py"/>
 
-  <group ns="STP_human">
-    <node pkg="stp_humans_fastrack" name="test" type="STP_human.py"/>
-  </group>
+    <node pkg="tf" name="world_publisher" type="static_transform_publisher" args="0 0 0 0 0 0 1 world my_frame 100"/>
 
 </launch>
+

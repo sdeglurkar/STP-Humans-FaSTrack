@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 import rospy
 from geometry_msgs.msg import Point
+from visualization_msgs.msg import Marker
 
 import astar_STP_human
 import pedestrian_prediction.pp.mdp.expanded as ex 
@@ -16,6 +17,17 @@ import pedestrian_prediction.pp.inference.hardmax.state as st
 class STP_Human:
 	def __init__(self):
 		self.load_parameters()
+		rospy.init_node('human_pose_listener', anonymous=True)
+		self.time_counter = rospy.get_time()
+		self.sub = rospy.Subscriber('human_pose', Point, self.human_callback)
+		self.pub0 = rospy.Publisher('robot_pose0', Point, queue_size=10)
+		self.pub1 = rospy.Publisher('robot_pose1', Point, queue_size=10)
+		self.pub2 = rospy.Publisher('robot_pose2', Point, queue_size=10)
+		self.marker_pub0 = rospy.Publisher('robot_pose_marker0', Marker, queue_size=10)
+		self.marker_pub1 = rospy.Publisher('robot_pose_marker1', Marker, queue_size=10)
+		self.marker_pub2 = rospy.Publisher('robot_pose_marker2', Marker, queue_size=10)
+		rospy.spin()
+
 
 	def load_parameters(self):
 		self.human_goals = [(4, 17)] 
@@ -29,9 +41,6 @@ class STP_Human:
 		self.betas = [0.2, 0.5, 1, 1.5, 3, 5, 8]
 		self.fwd_tsteps = 7
 		self.collision_threshold = 0.01
-		self.show_animation = False
-		self.show_prob_dist = False
-		self.show_teb = False
 		self.tracking_error_bounds = [0, 0, 0] #tracking_error_bounds[i] is the teb planner i plans with
 
 		self.possible_planners = [astar_STP_human.AStarPlanner(self.robot_starts[0], self.grid_length, self.grid_width, self.tracking_error_bounds[0]), \
@@ -40,9 +49,6 @@ class STP_Human:
 		self.planners = []
 		for i in range(self.num_robots):
 			self.planners.append(self.possible_planners[i])
-
-		self.planner_colors_pos = ['bo', 'go', 'ro', 'yo'] 
-		self.planner_colors_goals = ['bx', 'gx', 'rx', 'yx']
 
 		self.deltat = 1
 		self.global_time = 0
@@ -58,13 +64,6 @@ class STP_Human:
 			for j in range(3):
 				self.static_obs[0][i + 12][j + 14] = True
 
-
-
-	def get_human_pose(self): 
-		rospy.init_node('human_pose_listener', anonymous=True)
-		self.time_counter = rospy.get_time()
-		rospy.Subscriber('human_pose', Point, self.give_plans)
-		rospy.spin()
 
 
 	def robot_follow_plan(self, planner, traj, dt):
@@ -96,81 +95,69 @@ class STP_Human:
 		return obmap
 
 
+	def pose_to_marker(self, pose):
+		marker_pose = Marker()
+		marker_pose.header.frame_id = "world"
+		marker_pose.header.stamp = rospy.Time().now()
+		marker_pose.type = marker_pose.SPHERE
+		marker_pose.action = marker_pose.ADD
+		marker_pose.pose.orientation.w = 1
+		marker_pose.pose.position.x = pose.x
+		marker_pose.pose.position.y = pose.y
+		marker_pose.pose.position.z = pose.z
+		marker_pose.scale.x = 1
+		marker_pose.scale.y = 1
+		marker_pose.scale.z = 1
+		marker_pose.color.r = 1
+		marker_pose.color.g = 0
+		marker_pose.color.b = 0
+		marker_pose.color.a = 1
 
-	#T = 20
-	#dt = 1
-	#t = 0
+		return marker_pose
+
 
 	def human_callback(self, msg):
 		x = msg.x
 		y = msg.y
+		pose0 = Point()
+		pose1 = Point()
+		pose2 = Point()
 		t = rospy.get_time() - self.time_counter
-		self.global_time += t
-		
-		#pub = rospy.Publisher('robot_pose', Point, queue_size=10)
-    	#rospy.init_node('robot_pose_giver', anonymous=True)
-    	#rate = rospy.Rate(10) # 10hz
-    	#while not rospy.is_shutdown():
-    	#	pose = Point()
-    	#	pose.x, pose.y = plan_point[0], plan_point[1]
-    	#	pose.z = 0.0
-    	#	rospy.loginfo(pose)
-    	#	pub.publish(pose)
-    	#	rate.sleep()
     			
 		if math.fabs(t - self.deltat) < 0.1:	
+			self.global_time += t
 			self.obstacle_traj.append((x, y))
 			rospy.loginfo("Human is at (" + str(x) + "," + str(y) + ") at time " + str(self.global_time))
-			#print("Human is at ", (x,y), " at time ", self.global_time)
-			if self.show_animation:
-				for i in range(self.num_robots):
-					plt.plot(self.robot_goals[i][0], self.robot_goals[i][1], self.planner_colors_goals[i])
-				for goal in self.human_goals:
-					plt.plot(goal[0], goal[1], 'kx')
 			
-				for row in range(len(self.static_obs[0])):
-					for col in range(len(self.static_obs[0][0])):
-						if self.static_obs[0][row][col]:
-							plt.plot(row, col, 'ko')
-				plt.plot(0, 0)
-				plt.plot(self.grid_length, self.grid_width)
-				plt.plot(x, y, 'ko')
-		
-	
 			for i in range(len(self.planners)):
-				rospy.loginfo("Robot " + str(i) + " is at (" + str(self.planners[i].curr_pos[0]) + "," + str(self.planners[i].curr_pos[1]) + ") at time " + str(self.global_time))
- 				#print("Robot ", i, " is at ", self.planners[i].curr_pos, " at time ", self.global_time)
-	
-			if self.show_animation:
-				for i in range(len(self.planners)):
-					plt.plot(self.planners[i].curr_pos[0], self.planners[i].curr_pos[1], self.planner_colors_pos[i])
-					if self.show_teb:
-						circle = plt.Circle((self.planners[i].curr_pos[0], self.planners[i].curr_pos[1]), \
-							math.ceil(self.tracking_error_bounds[i] + self.planners[i].robot_size), color = self.planner_colors_pos[i][0], fill = False)
-						fig = plt.gcf()
-						ax = fig.gca()
-						ax.add_artist(circle)
-				#plt.pause(1)
-	
+				rospy.loginfo("Robot " + str(i) + " is at (" + str(self.planners[i].curr_pos[0]) + \
+						"," + str(self.planners[i].curr_pos[1]) + ") at time " + str(self.global_time))
 
+			if self.num_robots >= 1:
+				pose0.x = self.planners[0].curr_pos[0]
+				pose0.y = self.planners[0].curr_pos[1]
+				pose0.z = 0.0
+				rospy.loginfo(pose0)
+				self.pub0.publish(pose0)
+				self.marker_pub0.publish(self.pose_to_marker(pose0))
+			if self.num_robots >= 2:
+				pose1.x = self.planners[1].curr_pos[0]
+				pose1.y = self.planners[1].curr_pos[1]
+				pose1.z = 0.0
+				rospy.loginfo(pose1)
+				self.pub1.publish(pose1)
+				self.marker_pub1.publish(self.pose_to_marker(pose1))
+			if self.num_robots >= 3:
+				pose2.x = self.planners[2].curr_pos[0]
+				pose2.y = self.planners[2].curr_pos[1]
+				pose2.z = 0.0
+				rospy.loginfo(pose2)
+				self.pub2.publish(pose2)
+				self.marker_pub2.publish(self.pose_to_marker(pose2))
+	
 			(occupancy_grids, beta_occu, dest_beta_prob) = st.infer_joint(self.gridworld, 
 					self.dest_list, self.betas, T=self.fwd_tsteps, use_gridless=True, traj=self.obstacle_traj, verbose_return=True)
 			occupancy_grids_2D = [np.reshape(grid, (self.grid_length, self.grid_width)) for grid in occupancy_grids] 
-
-
-			if self.show_animation and self.show_prob_dist:
-				obstacle_grid = occupancy_grids_2D[2]
-
-				for row in range(len(obstacle_grid)):
-					for col in range(len(obstacle_grid[0])):
-						if obstacle_grid[row][col] >= 0.005 and obstacle_grid[row][col] < 0.01:
-							plt.plot(row, col, 'bo', alpha = 0.2)
-						elif obstacle_grid[row][col] >= 0.01 and obstacle_grid[row][col] < 0.015:
-							plt.plot(row, col, 'go', alpha = 0.2)
-						elif obstacle_grid[row][col] >= 0.015 and obstacle_grid[row][col] < 0.02:
-							plt.plot(row, col, 'yo', alpha = 0.2)
-						elif obstacle_grid[row][col] > 0.02:
-							plt.plot(row, col, 'ro', alpha = 0.2)
 
 
 			obmaps = [occupancy_grids_2D, self.static_obs]
@@ -186,55 +173,17 @@ class STP_Human:
 
 			for i in range(len(self.planners)):
 				self.robot_follow_plan(self.planners[i], robot_trajs[i], self.deltat)
-				
-			#for i in range(len(self.planners)):
-				#self.give_plans(self.planners[i].curr_pos)
-				#self.give_plans([5, 5])
+		
 
-
-			#t += dt
 			self.time_counter = rospy.get_time()
-		
-		
-		if self.show_animation:
-			plt.show()	
+
+
 			
-			
-			
-	def give_plans(self, msg):
-		rospy.loginfo("Yay!")
 		
-
-
-		#pub = rospy.Publisher('robot_pose', Point, queue_size=10)
-    	##rospy.init_node('robot_pose_giver', anonymous=True)
-    	#pose = Point()
-    	#pose.x = 5
-    	#pose.y = 5
-    	#pose.z = 0.0
-    	#rospy.loginfo(pose)
-    	#rospy.Publisher('robot_pose', Point, queue_size=10).publish(pose)
-    	##rate = rospy.Rate(10) # 10hz
-    	##while not rospy.is_shutdown():
-    	##	pose = Point()
-    	##	#pose.x, pose.y = plan_point[0], plan_point[1]
-    	##	pose.x = 5
-    	##	pose.y = 5
-    	##	pose.z = 0.0
-    	##	rospy.loginfo(pose)
-    	##	pub.publish(pose)
-    	##	rate.sleep()
-
-
 
 if __name__ == '__main__':
     try:
     	STPHuman = STP_Human()
-    	#STPHuman.give_plans()
-    	STPHuman.get_human_pose()
     except rospy.ROSInterruptException:
         pass
-
-
-
 
