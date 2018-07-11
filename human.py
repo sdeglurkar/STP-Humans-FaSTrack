@@ -4,12 +4,16 @@ import rospy
 from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker
 
-positions = {0:(12, 10), 1:(11, 10), 2:(10, 10), 3:(10, 11), 4:(9, 12), 5:(8, 13), \
+sim_positions = {0:(12, 10), 1:(11, 10), 2:(10, 10), 3:(10, 11), 4:(9, 12), 5:(8, 13), \
     6:(7, 14), 7:(7, 15), 8:(7, 16), 9:(6, 15), 10:(5, 16), 11:(4, 17)}
+real_positions = {0:(-0.38, -1.15), 1:(-0.765, -1.15), 2:(-1.15, -1.15), 3:(-1.15, -0.765), 4:(-1.535, -0.38), \
+    5:(-1.92, 0.005), 6:(-2.305, 0.39), 7:(-2.305, 0.775), 8:(-2.305, 1.16), 9:(-2.69, 0.775), 10:(-3.075, 1.16), \
+    11:(-3.46, 1.545)}
+
 
 class Human:
 
-    def __init__(self, my_positions = positions):
+    def __init__(self, my_positions = real_positions):
         rospy.init_node('human_pose_giver', anonymous=True)
         self.my_positions = my_positions
         self.pub = rospy.Publisher('human_pose', Point, queue_size=10)
@@ -17,19 +21,19 @@ class Human:
         
         
     def interpolate(self, time):
-        times = positions.keys()
+        times = self.my_positions.keys()
         if time in times:
-            return positions[time]
+            return self.my_positions[time]
         elif time > times[-1]:
             last_time = times[-1]
-            return positions[last_time]
+            return self.my_positions[last_time]
         else:
             for i in range(len(times) - 1):
                 if times[i] < time and times[i + 1] > time:
                     prev_t = times[i]
                     next_t = times[i + 1]
-                    prev = positions[prev_t]
-                    next = positions[next_t]
+                    prev = self.my_positions[prev_t]
+                    next = self.my_positions[next_t]
                     x = prev[0] + (next[0] - prev[0]) * ((time - prev_t) / (next_t - prev_t)) 
                     y = prev[1] + (next[1] - prev[1]) * ((time - prev_t) / (next_t - prev_t))
                     return (x, y)
@@ -45,11 +49,11 @@ class Human:
             pose.z = 0.0
             rospy.loginfo(pose)
             self.pub.publish(pose)
-            self.marker_pub.publish(self.pose_to_marker(pose))
+            self.marker_pub.publish(self.pose_to_marker(pose, 1, 0, 0, 1))
             rate.sleep()
 
 
-    def pose_to_marker(self, pose):
+    def pose_to_marker(self, pose, r, g, b, alpha):
         marker_pose = Marker()
         marker_pose.header.frame_id = "world"
         marker_pose.header.stamp = rospy.Time().now()
@@ -62,10 +66,10 @@ class Human:
         marker_pose.scale.x = 1
         marker_pose.scale.y = 1
         marker_pose.scale.z = 1
-        marker_pose.color.r = 1
-        marker_pose.color.g = 0
-        marker_pose.color.b = 0
-        marker_pose.color.a = 1
+        marker_pose.color.r = r
+        marker_pose.color.g = g
+        marker_pose.color.b = b
+        marker_pose.color.a = alpha
 
         return marker_pose
 

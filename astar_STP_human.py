@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 
+import rospy
+from std_msgs.msg import String
+
 class Node:
 
     def __init__(self, x, y, cost, pind, tstamp):
@@ -28,6 +31,8 @@ class AStarPlanner:
         self.grid_reso = 1
         self.robot_size = robot_size
         self.curr_pos = start
+
+        self.debugger_pub = rospy.Publisher('planner_debugger', String, queue_size=10)
 
 
     def plan_traj(self, goal, obmaps, collision_threshold): #obmaps contains one 3D array and num_robots amount of dictionaries with 2D arrays as values
@@ -63,6 +68,7 @@ class AStarPlanner:
             for i in range(len(motion)):
                 node = Node(current.x + motion[i][0], current.y + motion[i][1],
                             current.cost + motion[i][2], c_id, current.tstamp + (motion[i][2]/motion[i][3]))
+                
                 n_id = self.calc_index(node, self.grid_length, 0, 0)
                 
                 if not self.verify_node(node, obmaps, 0, 0, self.grid_length, self.grid_width, collision_threshold):
@@ -79,7 +85,6 @@ class AStarPlanner:
                     openset[n_id] = node
 
         rx, ry, t = self.calc_final_traj(ngoal, closedset, self.grid_reso) #this traj is reversed in time
-
         return [(rx[len(t) - 1 - i], ry[len(t) - 1 - i], t[len(t) - 1 - i]) for i in range(len(t))]
 
 
@@ -157,6 +162,8 @@ class AStarPlanner:
                 prev = low_grid[i][j]
                 next = high_grid[i][j]
                 curr = prev + (next - prev) * ((node.tstamp - prev_t) / (next_t - prev_t))
+                if i == 8 and j == 9:
+                    self.pub.publish(str(prev) + " " + str(next) + " " + str(curr))
                 interpolated_obstacle_grid[i][j] = curr
 
         #low_grid = np.reshape(low_grid, self.grid_length * self.grid_width)
@@ -233,16 +240,14 @@ class AStarPlanner:
 
     def get_motion_model(self):
         # dx, dy, cost, speed
-        motion = [[1, 0, 1, 3],
-                  [0, 1, 1, 3],
-                  [-1, 0, 1, 3],
-                  [0, -1, 1, 3],
+        motion = [[1, 0, 1.0, 3],
+                  [0, 1, 1.0, 3],
+                  [-1, 0, 1.0, 3],
+                  [0, -1, 1.0, 3],
                   [-1, -1, math.sqrt(2), math.sqrt(18)],
                   [-1, 1, math.sqrt(2), math.sqrt(18)],
                   [1, -1, math.sqrt(2), math.sqrt(18)],
                   [1, 1, math.sqrt(2), math.sqrt(18)]]
 
         return motion
-
-
 
