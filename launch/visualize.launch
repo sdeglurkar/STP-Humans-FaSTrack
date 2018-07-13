@@ -1,0 +1,10 @@
+<launch>
+  <!-- Launch RViz with the proper config file robot descriptor. -->
+  <node name="rviz"
+        pkg="rviz"
+        type="rviz"
+        args="-d $(find stp_humans_fastrack)/rviz/stp.rviz"
+        required="true">
+  </node>
+
+</launch>

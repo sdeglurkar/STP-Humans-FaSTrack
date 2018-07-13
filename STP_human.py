@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+
+
+#Fix the planner 3D stuff
+#Make STP listen to occupancy grids
+#Delete STP's pedestrian prediction
+
+
+
 import numpy as np
 import time
 import math
@@ -12,8 +20,8 @@ from std_msgs.msg import String
 from crazyflie_human.msg import OccupancyGridTime, ProbabilityGrid
 
 import astar_STP_human
-import pedestrian_prediction.pp.mdp.expanded as ex 
-import pedestrian_prediction.pp.inference.hardmax.state as st 
+#import pedestrian_prediction.pp.mdp.expanded as ex 
+#import pedestrian_prediction.pp.inference.hardmax.state as st 
 
 
 class STP_Human:
@@ -21,8 +29,8 @@ class STP_Human:
 		self.load_parameters()
 		rospy.init_node('STP', anonymous=True)
 		self.time_counter = rospy.get_time()
-		self.human_sub = rospy.Subscriber('human_pose', Point, self.human_callback)
-		#self.occugrid_sub = rospy.Subscriber('occupancy_grid_time', OccupancyGridTime, self.occugrid_callback)
+		#self.human_sub = rospy.Subscriber('human_pose', Point, self.human_callback)
+		self.occugrid_sub = rospy.Subscriber('occupancy_grid_time', OccupancyGridTime, self.occugrid_callback)
 		self.pub0 = rospy.Publisher('robot_pose0', Point, queue_size=10)
 		self.pub1 = rospy.Publisher('robot_pose1', Point, queue_size=10)
 		self.pub2 = rospy.Publisher('robot_pose2', Point, queue_size=10)
@@ -51,7 +59,7 @@ class STP_Human:
 
 
 	def load_parameters(self):
-		self.human_goals = [(4, 17)] 
+		#self.human_goals = [(4, 17)] 
 		self.num_robots = 1
 		self.robot_starts = [(5, 5, 3), (5, 20, 3), (20, 15, 3)]
 		self.robot_goals = [[23, 23, 3], [8, 2, 3], [17, 4, 3]] 
@@ -59,17 +67,17 @@ class STP_Human:
 		# Sim grid is only positive (x, y)
 		self.sim_length = 26 #x-direction
 		self.sim_width = 26 #y-direction
-		self.sim_height = 10
+		self.sim_height = 6
 		# Real grid dimensions
 		self.real_length = 10
 		self.real_width = 10
 		self.real_upper = (5, 5)
 		self.real_lower = (-5, -5)
 
-		self.gridworld = ex.GridWorldExpanded(self.sim_length, self.sim_width)
-		self.dest_list = [self.gridworld.coor_to_state(g[0], g[1]) for g in self.human_goals]
-		self.betas = [0.2, 0.5, 1, 1.5, 3, 5, 8]
-		self.fwd_tsteps = 7
+		#self.gridworld = ex.GridWorldExpanded(self.sim_length, self.sim_width)
+		#self.dest_list = [self.gridworld.coor_to_state(g[0], g[1]) for g in self.human_goals]
+		#self.betas = [0.2, 0.5, 1, 1.5, 3, 5, 8]
+		self.fwd_tsteps = 10
 		self.collision_threshold = 0.01
 		self.tracking_error_bounds = [0, 0, 0] #tracking_error_bounds[i] is the teb planner i plans with
 
@@ -213,12 +221,12 @@ class STP_Human:
 
 
 
-	def human_callback(self, msg):
-		x = msg.x
-		y = msg.y
-		(x, y) = self.real_to_sim_coord((x, y))
-		#occupancy_grids = self.from_ROSMsg(msg)
-		#occupancy_grids_2D = [np.reshape(grid, (self.sim_length, self.sim_width)) for grid in occupancy_grids]
+	def occugrid_callback(self, msg):
+		#x = msg.x
+		#y = msg.y
+		#(x, y) = self.real_to_sim_coord((x, y))
+		occupancy_grids = self.from_ROSMsg(msg)
+		occupancy_grids_2D = [np.reshape(grid, (self.sim_length, self.sim_width)) for grid in occupancy_grids]
 
 		pose0 = Point()
 		pose1 = Point()
@@ -252,8 +260,8 @@ class STP_Human:
 
 		if math.fabs(t - self.deltat) < 0.1:	
 			self.global_time += t
-			self.obstacle_traj.append((x, y))
-			rospy.loginfo("Human is at (" + str(x) + "," + str(y) + ") at time " + str(self.global_time))
+			#self.obstacle_traj.append((x, y))
+			#rospy.loginfo("Human is at (" + str(x) + "," + str(y) + ") at time " + str(self.global_time))
 			
 			for i in range(len(self.planners)):
 				rospy.loginfo("Robot " + str(i) + " is at (" + str(self.planners[i].curr_pos[0]) + \
@@ -261,9 +269,9 @@ class STP_Human:
 						") at time " + str(self.global_time))
 
 	
-			(occupancy_grids, beta_occu, dest_beta_prob) = st.infer_joint(self.gridworld, 
-					self.dest_list, self.betas, T=self.fwd_tsteps, use_gridless=True, traj=self.obstacle_traj, verbose_return=True)
-			occupancy_grids_2D = [np.reshape(grid, (self.sim_length, self.sim_width)) for grid in occupancy_grids]
+			#(occupancy_grids, beta_occu, dest_beta_prob) = st.infer_joint(self.gridworld, 
+			#		self.dest_list, self.betas, T=self.fwd_tsteps, use_gridless=True, traj=self.obstacle_traj, verbose_return=True)
+			#occupancy_grids_2D = [np.reshape(grid, (self.sim_length, self.sim_width)) for grid in occupancy_grids]
 			occupancy_grids_3D = {}
 			for t in range(self.fwd_tsteps):
 				occupancy_grids_3D[t] = np.zeros((self.sim_length, self.sim_width, self.sim_height))

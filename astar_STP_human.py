@@ -98,7 +98,7 @@ class AStarPlanner:
                             openset[n_id] = node
 
         end = rospy.Time().now().secs
-        self.debugger_pub.publish(str(end-start))
+        self.debugger_pub.publish(str(end - start))
 
 
         rx, ry, rz, t = self.calc_final_traj(ngoal, closedset, self.grid_reso) #this traj is reversed in time
