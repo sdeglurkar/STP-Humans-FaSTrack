@@ -54,6 +54,10 @@ class AStarPlanner:
         gy = goal[1]
         gz = goal[2]
 
+        if gz != self.curr_pos[2]:
+            #Cannot plan - planner cannot change z
+            return
+
         start = rospy.Time().now().secs
         while 1:
             #for num in openset:
@@ -77,25 +81,26 @@ class AStarPlanner:
             # expand search grid based on motion model
             for i in [-1, 0, 1]:
                 for j in [-1, 0, 1]:
-                    for k in [-1, 0, 1]:
-                        node = Node(current.x + i, current.y + j, current.z + k, \
-                            current.cost + self.calculate_motion_cost(i, j, k), c_id, \
-                            current.tstamp + 1.0/self.speed)
-                        n_id = self.calc_index(node)
+                    node = Node(current.x + i, current.y + j, current.z, \
+                        current.cost + self.calculate_motion_cost(i, j), c_id, \
+                        current.tstamp + 1.0/self.speed)
+                    n_id = self.calc_index(node)
 
-                        if not self.verify_node(node, obmaps, 0, 0, 0, self.grid_length, \
-                            self.grid_width, self.grid_height, collision_threshold):
-                           continue
+                    if not self.verify_node(node, obmaps, 0, 0, 0, self.grid_length, \
+                        self.grid_width, self.grid_height, collision_threshold):
+                        continue
 
-                        if n_id in closedset:
-                            continue
-                        # Otherwise if it is already in the open set
-                        if n_id in openset:
-                            if openset[n_id].cost > node.cost:
-                                openset[n_id].cost = node.cost
-                                openset[n_id].pind = c_id
-                        else:
-                            openset[n_id] = node
+                    if n_id in closedset:
+                        continue
+                    # Otherwise if it is already in the open set
+                    if n_id in openset:
+                        if openset[n_id].cost > node.cost:
+                            openset[n_id].cost = node.cost
+                            openset[n_id].pind = c_id
+                    else:
+                        openset[n_id] = node
+
+            #self.debugger_pub.publish(current.__str__())
 
         end = rospy.Time().now().secs
         self.debugger_pub.publish(str(end - start))
@@ -159,43 +164,43 @@ class AStarPlanner:
 
 
     def verify_human(self, node, obmap, collision_threshold): #returns True if node is safe
-        times = list(obmap.keys())
-        if node.tstamp > times[len(times) - 1]: #planning time exceeds time obstacle exists
-            last_time = times[len(times) - 1]
-            obstacle_grid = obmap[last_time]
-            if sum(self.integrator(node, obstacle_grid)) >= collision_threshold:
+        if obmap == []:
+            return True
+        if node.tstamp > len(obmap) - 1: #planning time exceeds time obstacle exists
+            obstacle_grid = obmap[len(obmap) - 1]
+            if sum(self.integrator_2D(node, obstacle_grid)) >= collision_threshold:
                 return False
             else:
                 return True
         else:
-            for i in range(len(times)): #planning for a time that exists exactly in the obmap
+            for i in range(len(obmap)): #planning for a time that exists exactly in the obmap
                 eps = 0.001
-                if np.abs(node.tstamp - times[i]) < eps:
-                    obstacle_grid = obmap[times[i]]
-                    if sum(self.integrator(node, obstacle_grid)) >= collision_threshold:
+                if np.abs(node.tstamp - i) < eps:
+                    obstacle_grid = obmap[i]
+                    if sum(self.integrator_2D(node, obstacle_grid)) >= collision_threshold:
                         return False
                     else:
                         return True
 
 
-        prev_t = 0  #planning for a time that is in between time stamps in the obmap
-        next_t = 0
-        for i in range(len(times) - 1):
-            if times[i] < node.tstamp and times[i + 1] > node.tstamp:
-                prev_t = times[i]
-                next_t = times[i + 1]
+        prev_t = int(math.floor(node.tstamp))  #planning for a time that is in between time stamps in the obmap
+        next_t = int(math.ceil(node.tstamp))
         low_grid = obmap[prev_t]
         high_grid = obmap[next_t]
-        interpolated_obstacle_grid = np.zeros((self.grid_length, self.grid_width, self.grid_height))
+        interpolated_obstacle_grid = np.zeros((self.grid_length, self.grid_width))
         for i in range(len(low_grid)):
             for j in range(len(low_grid[0])):
-                for k in range(len(low_grid[0][0])):
-                    prev = low_grid[i][j][k]
-                    next = high_grid[i][j][k]
-                    curr = prev + (next - prev) * ((node.tstamp - prev_t) / (next_t - prev_t))
-                    interpolated_obstacle_grid[i][j][k] = curr
+                prev = low_grid[i][j]
+                next = high_grid[i][j]
+                curr = prev + (next - prev) * ((node.tstamp - prev_t) / (next_t - prev_t))
+                #if curr > 0:
+                #    self.debugger_pub.publish(str(prev) + " " + str(next) + " " + str(curr))
+                #    self.debugger_pub.publish(str(i) + " " + str(j))
+                interpolated_obstacle_grid[i][j] = curr
  
-        if sum(self.integrator(node, interpolated_obstacle_grid)) >= collision_threshold:
+        if sum(self.integrator_2D(node, interpolated_obstacle_grid)) >= collision_threshold:
+            #self.debugger_pub.publish(str(node.x) + " " + str(node.y))
+            #self.debugger_pub.publish(str(sum(self.integrator_2D(node, interpolated_obstacle_grid))))
             return False
         else:
             return True
@@ -203,11 +208,12 @@ class AStarPlanner:
 
 
     def verify_robot(self, node, obmap, collision_threshold): #returns True if node is safe
+        #return True
         times = list(obmap.keys())
         if node.tstamp > times[len(times) - 1]: #planning time exceeds time obstacle exists
             last_time = times[len(times) - 1]
             obstacle_grid = obmap[last_time]
-            if np.any(self.integrator(node, obstacle_grid)):
+            if np.any(self.integrator_3D(node, obstacle_grid)):
                 return False
             else:
                 return True
@@ -216,7 +222,7 @@ class AStarPlanner:
                 eps = 0.001
                 if np.abs(node.tstamp - times[i]) < eps:
                     obstacle_grid = obmap[times[i]]
-                    if np.any(self.integrator(node, obstacle_grid)):
+                    if np.any(self.integrator_3D(node, obstacle_grid)):
                         return False
                     else:
                         return True
@@ -227,8 +233,8 @@ class AStarPlanner:
             if times[i] < node.tstamp and times[i + 1] > node.tstamp:
                 prev_t = times[i]
                 next_t = times[i + 1]
-        before = self.integrator(node, obmap[prev_t])
-        after = self.integrator(node, obmap[next_t])
+        before = self.integrator_3D(node, obmap[prev_t])
+        after = self.integrator_3D(node, obmap[next_t])
         if np.any(before) or np.any(after): 
             return False
         else:
@@ -237,17 +243,32 @@ class AStarPlanner:
 
 
 
-    def integrator(self, node, obstacle_grid): #returns obstacle grid cells to sum over
+    def integrator_3D(self, node, obstacle_grid): #returns obstacle grid cells to sum over
         integrate_over = []
         radius = math.ceil(self.robot_size + self.tracking_error_bound)
-        cube_radius = math.sqrt(radius**2 + radius**2 + radius**2) #cube that circumscribes the sphere defined by teb
+        rectangular_radius = math.sqrt(radius**2 + radius**2) #rectangular that circumscribes the sphere defined by teb
+        obstacle_grid = obstacle_grid[:, :, node.z]
         for i in range(len(obstacle_grid)):
             for j in range(len(obstacle_grid[0])):
-                for k in range(len(obstacle_grid[0][0])):
-                    dist_to_node = math.sqrt((i - node.x)**2 + (j - node.y)**2 + (k - node.z)**2)
-                    if dist_to_node <= cube_radius:
-                        integrate_over.append(obstacle_grid[i][j][k])
+                dist_to_node = math.sqrt((i - node.x)**2 + (j - node.y)**2)
+                if dist_to_node <= rectangular_radius:
+                    integrate_over.append(obstacle_grid[i][j])
 
+        return integrate_over
+
+
+
+    def integrator_2D(self, node, obstacle_grid): #returns obstacle grid cells to sum over
+        integrate_over = []
+        radius = math.ceil(self.robot_size + self.tracking_error_bound)
+        rectangular_radius = math.sqrt(radius**2 + radius**2) #rectangle that circumscribes the sphere defined by teb
+        for i in range(len(obstacle_grid)):
+            for j in range(len(obstacle_grid[0])):
+                dist_to_node = math.sqrt((i - node.x)**2 + (j - node.y)**2)
+                if dist_to_node <= rectangular_radius:
+                    integrate_over.append(obstacle_grid[i][j])
+
+        #self.debugger_pub.publish(str(sum(integrate_over)))
         return integrate_over
         
 
@@ -256,15 +277,15 @@ class AStarPlanner:
     #    return (node.y - ymin) * xwidth + (node.x - xmin)
 
     def calc_index(self, node):
-        return (node.x * 100) + (node.y * 10) + node.z
+        return (node.x * 10000) + (node.y * 100) + node.z
 
 
-    def calculate_motion_cost(self, dx, dy, dz):
-        return math.sqrt(math.fabs(dx) + math.fabs(dy) + math.fabs(dz))
+    def calculate_motion_cost(self, dx, dy):
+        return math.sqrt(math.fabs(dx) + math.fabs(dy))
 
 
-    def calculate_motion_speed(self, dx, dy, dz):
-        return math.sqrt(math.fabs(dx) + math.fabs(dy) + math.fabs(dz)) * self.speed
+    def calculate_motion_speed(self, dx, dy):
+        return math.sqrt(math.fabs(dx) + math.fabs(dy)) * self.speed
 
 
 

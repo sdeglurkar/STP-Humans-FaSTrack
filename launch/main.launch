@@ -2,6 +2,9 @@
 
 <launch>
 
+	<rosparam command="load" file="$(find crazyflie_human)/config/pedestrian_pred.yaml" />
+	<rosparam command="load" file="$(find stp_humans_fastrack)/config/stp.yaml" />
+
     <node pkg="stp_humans_fastrack" name="human_node" type="human.py"/>
     <node pkg="stp_humans_fastrack" name="STP_human_node" type="STP_human.py"/>
 
