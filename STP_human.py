@@ -45,12 +45,19 @@ class STP_Human:
 					sim_pose.z = k
 					(sim_pose.x, sim_pose.y) = self.sim_to_real_coord((sim_pose.x, sim_pose.y))
 					self.static_obs_poses.append(sim_pose) #Now it's the real pose though
-		goal = Point()
-		goal.x = self.robot_goals[0][0]
-		goal.y = self.robot_goals[0][1]
-		goal.z = self.robot_goals[0][2]
-		(goal.x, goal.y) = self.sim_to_real_coord((goal.x, goal.y))
-		self.static_obs_poses.append(goal)
+		goal0 = Point()
+		goal0.x = self.robot_goals[0][0]
+		goal0.y = self.robot_goals[0][1]
+		goal0.z = self.robot_goals[0][2]
+		(goal0.x, goal0.y) = self.sim_to_real_coord((goal0.x, goal0.y))
+		self.static_obs_poses.append(goal0)
+		goal1 = Point()
+		goal1.x = self.robot_goals[1][0]
+		goal1.y = self.robot_goals[1][1]
+		goal1.z = self.robot_goals[1][2]
+		(goal1.x, goal1.y) = self.sim_to_real_coord((goal1.x, goal1.y))
+		self.static_obs_poses.append(goal1)
+
 
 		# DEBUGGING  - PUBLISH MARKERS FOR CORNERS OF REAL GRID #
 		dummy = Point()

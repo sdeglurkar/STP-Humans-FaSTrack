@@ -1,6 +1,6 @@
 stp:
 
-  num_robots: 1 #up to 3
+  num_robots: 2 #up to 3
   robot_starts: [[25, 12, 1], [5, 20, 1], [20, 15, 1]]
   #robot_starts: [[5, 5, 1], [5, 20, 1], [20, 15, 1]]
   robot_goals: [[13, 25, 1], [8, 2, 1], [17, 4, 1]] 

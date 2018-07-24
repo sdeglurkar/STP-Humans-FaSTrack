@@ -207,7 +207,6 @@ class AStarPlanner:
 
 
     def verify_robot(self, node, obmap, collision_threshold): #returns True if node is safe
-        #return True
         times = list(obmap.keys())
         if node.tstamp > times[len(times) - 1]: #planning time exceeds time obstacle exists
             last_time = times[len(times) - 1]
@@ -246,7 +245,11 @@ class AStarPlanner:
         integrate_over = []
         radius = math.ceil(self.robot_size + self.tracking_error_bound)
         rectangular_radius = math.sqrt(radius**2 + radius**2) #rectangular that circumscribes the sphere defined by teb
-        obstacle_grid = obstacle_grid[:, :, node.z]
+        og = np.zeros((self.grid_length, self.grid_width))
+        for i in range(len(obstacle_grid)):
+            for j in range(len(obstacle_grid[0])):
+                og[i][j] = obstacle_grid[i][j][int(node.z)]
+        obstacle_grid = og
         for i in range(len(obstacle_grid)):
             for j in range(len(obstacle_grid[0])):
                 dist_to_node = math.sqrt((i - node.x)**2 + (j - node.y)**2)
@@ -281,5 +284,7 @@ class AStarPlanner:
 
     #def calculate_motion_speed(self, dx, dy):
     #    return math.sqrt(math.fabs(dx) + math.fabs(dy)) * self.speed
+
+
 
 
