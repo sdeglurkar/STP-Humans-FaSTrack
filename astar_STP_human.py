@@ -41,11 +41,9 @@ class AStarPlanner:
 
 
     def plan_traj(self, goal, obmaps, collision_threshold): #obmaps contains one 3D array and num_robots amount of dictionaries with 2D arrays as values
-        self.debugger_pub.publish("Planning")
-        print("Planning")
+        self.debugger_pub.publish("Planning starting at " + str(self.curr_pos[0]) + " " + str(self.curr_pos[1]))
         nstart = Node(round(self.curr_pos[0]/self.grid_reso), round(self.curr_pos[1]/self.grid_reso), \
             round(self.curr_pos[2]/self.grid_reso), 0.0, -1, 0.0)
-        #motion = self.get_motion_model()
 
         openset, closedset = dict(), dict()
         openset[self.calc_index(nstart)] = nstart
@@ -58,17 +56,14 @@ class AStarPlanner:
             #Cannot plan - planner cannot change z
             return
 
-        start = rospy.Time().now().secs
+        start = rospy.Time().now().secs #for timing
         while 1:
-            #for num in openset:
-            #    print(openset[num].x, openset[num].y)
             c_id = min(
                 openset, key=lambda o: openset[o].cost + self.calc_h(gx, gy, gz, openset[o].x, openset[o].y, openset[o].z))
             current = openset[c_id]
-            print(current)
+            self.debugger_pub.publish("Current: " + current.__str__())
 
             if current.x == gx and current.y == gy and current.z == gz:
-                print("Found goal")
                 ngoal = Node(round(gx/self.grid_reso), round(gy/self.grid_reso), round(gz/self.grid_reso), \
                     current.cost, current.pind, current.tstamp)
                 break
@@ -81,6 +76,9 @@ class AStarPlanner:
             # expand search grid based on motion model
             for i in [-1, 0, 1]:
                 for j in [-1, 0, 1]:
+                    #if i == 0 and j == 0:
+                    #    continue
+
                     node = Node(current.x + i, current.y + j, current.z, \
                         current.cost + self.calculate_motion_cost(i, j), c_id, \
                         current.tstamp + 1.0/self.speed)
@@ -100,10 +98,9 @@ class AStarPlanner:
                     else:
                         openset[n_id] = node
 
-            #self.debugger_pub.publish(current.__str__())
 
         end = rospy.Time().now().secs
-        self.debugger_pub.publish(str(end - start))
+        #self.debugger_pub.publish(str(end - start)) #for timing
 
 
         rx, ry, rz, t = self.calc_final_traj(ngoal, closedset, self.grid_reso) #this traj is reversed in time
@@ -164,27 +161,34 @@ class AStarPlanner:
 
 
     def verify_human(self, node, obmap, collision_threshold): #returns True if node is safe
-        if obmap == []:
+        self.debugger_pub.publish("Verifying human for " + node.__str__())
+        if obmap == {}:
             return True
-        if node.tstamp > len(obmap) - 1: #planning time exceeds time obstacle exists
-            obstacle_grid = obmap[len(obmap) - 1]
+        times = list(obmap.keys())
+        if node.tstamp > times[len(times) - 1]: #planning time exceeds time obstacle exists
+            last_time = times[len(times) - 1]
+            obstacle_grid = obmap[last_time]
             if sum(self.integrator_2D(node, obstacle_grid)) >= collision_threshold:
                 return False
             else:
                 return True
         else:
-            for i in range(len(obmap)): #planning for a time that exists exactly in the obmap
+            for i in range(len(times)): #planning for a time that exists exactly in the obmap
                 eps = 0.001
-                if np.abs(node.tstamp - i) < eps:
-                    obstacle_grid = obmap[i]
+                if np.abs(node.tstamp - times[i]) < eps:
+                    obstacle_grid = obmap[times[i]]
                     if sum(self.integrator_2D(node, obstacle_grid)) >= collision_threshold:
                         return False
                     else:
                         return True
 
 
-        prev_t = int(math.floor(node.tstamp))  #planning for a time that is in between time stamps in the obmap
-        next_t = int(math.ceil(node.tstamp))
+        prev_t = 0  #planning for a time that is in between time stamps in the obmap
+        next_t = 0
+        for i in range(len(times) - 1):
+            if times[i] < node.tstamp and times[i + 1] > node.tstamp:
+                prev_t = times[i]
+                next_t = times[i + 1]
         low_grid = obmap[prev_t]
         high_grid = obmap[next_t]
         interpolated_obstacle_grid = np.zeros((self.grid_length, self.grid_width))
@@ -193,14 +197,9 @@ class AStarPlanner:
                 prev = low_grid[i][j]
                 next = high_grid[i][j]
                 curr = prev + (next - prev) * ((node.tstamp - prev_t) / (next_t - prev_t))
-                #if curr > 0:
-                #    self.debugger_pub.publish(str(prev) + " " + str(next) + " " + str(curr))
-                #    self.debugger_pub.publish(str(i) + " " + str(j))
                 interpolated_obstacle_grid[i][j] = curr
  
         if sum(self.integrator_2D(node, interpolated_obstacle_grid)) >= collision_threshold:
-            #self.debugger_pub.publish(str(node.x) + " " + str(node.y))
-            #self.debugger_pub.publish(str(sum(self.integrator_2D(node, interpolated_obstacle_grid))))
             return False
         else:
             return True
@@ -268,13 +267,9 @@ class AStarPlanner:
                 if dist_to_node <= rectangular_radius:
                     integrate_over.append(obstacle_grid[i][j])
 
-        #self.debugger_pub.publish(str(sum(integrate_over)))
         return integrate_over
         
 
-
-    #def calc_index(self, node, xwidth, xmin, ymin):
-    #    return (node.y - ymin) * xwidth + (node.x - xmin)
 
     def calc_index(self, node):
         return (node.x * 10000) + (node.y * 100) + node.z
@@ -284,9 +279,7 @@ class AStarPlanner:
         return math.sqrt(math.fabs(dx) + math.fabs(dy))
 
 
-    def calculate_motion_speed(self, dx, dy):
-        return math.sqrt(math.fabs(dx) + math.fabs(dy)) * self.speed
-
-
+    #def calculate_motion_speed(self, dx, dy):
+    #    return math.sqrt(math.fabs(dx) + math.fabs(dy)) * self.speed
 
 

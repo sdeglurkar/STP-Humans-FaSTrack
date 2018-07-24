@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 
-
-
-#Fix the planner 3D stuff
-#Make STP listen to occupancy grids
-#Delete STP's pedestrian prediction
-
-
+# TODO: DELETE STP'S PEDESTRIAN PREDICTION #
 
 import numpy as np
 import time
@@ -19,9 +13,7 @@ from visualization_msgs.msg import Marker
 from std_msgs.msg import String
 from crazyflie_human.msg import OccupancyGridTime, ProbabilityGrid
 
-import astar_STP_human
-#import pedestrian_prediction.pp.mdp.expanded as ex 
-#import pedestrian_prediction.pp.inference.hardmax.state as st 
+import astar_STP_human 
 
 
 class STP_Human:
@@ -29,7 +21,6 @@ class STP_Human:
 		self.load_parameters()
 		rospy.init_node('STP', anonymous=True)
 		self.time_counter = rospy.get_time()
-		#self.human_sub = rospy.Subscriber('human_pose', Point, self.human_callback)
 		self.occugrid_sub = rospy.Subscriber('occupancy_grid_time', OccupancyGridTime, self.occugrid_callback)
 		self.pub0 = rospy.Publisher('robot_pose0', Point, queue_size=10)
 		self.pub1 = rospy.Publisher('robot_pose1', Point, queue_size=10)
@@ -54,12 +45,14 @@ class STP_Human:
 					sim_pose.z = k
 					(sim_pose.x, sim_pose.y) = self.sim_to_real_coord((sim_pose.x, sim_pose.y))
 					self.static_obs_poses.append(sim_pose) #Now it's the real pose though
-		dummy = Point()
-		dummy.x = self.robot_goals[0][0]
-		dummy.y = self.robot_goals[0][1]
-		dummy.z = self.robot_goals[0][2]
-		(dummy.x, dummy.y) = self.sim_to_real_coord((dummy.x, dummy.y))
-		self.static_obs_poses.append(dummy)
+		goal = Point()
+		goal.x = self.robot_goals[0][0]
+		goal.y = self.robot_goals[0][1]
+		goal.z = self.robot_goals[0][2]
+		(goal.x, goal.y) = self.sim_to_real_coord((goal.x, goal.y))
+		self.static_obs_poses.append(goal)
+
+		# DEBUGGING  - PUBLISH MARKERS FOR CORNERS OF REAL GRID #
 		dummy = Point()
 		dummy.x = 25
 		dummy.y = 25
@@ -84,12 +77,12 @@ class STP_Human:
 		dummy.z = 0
 		(dummy.x, dummy.y) = self.sim_to_real_coord((dummy.x, dummy.y))
 		self.static_obs_poses.append(dummy)
+
 
 		rospy.spin()
 
 
 	def load_parameters(self):
-		#self.human_goals = [(4, 17)] 
 		self.num_robots = rospy.get_param("stp/num_robots")
 		self.robot_starts = rospy.get_param("stp/robot_starts")
 		self.robot_goals = rospy.get_param("stp/robot_goals")
@@ -99,14 +92,12 @@ class STP_Human:
 		self.real_lower = rospy.get_param("state/lower")
 		self.real_length = self.real_upper[0] - self.real_lower[0]
 		self.real_width = self.real_upper[1] - self.real_lower[1]
-		# Sim grid is only positive (x, y)
+		# Sim grid is only positive (x, y) 
 		self.sim_length = int(rospy.get_param("pred/sim_width")) #x-direction
 		self.sim_width = int(rospy.get_param("pred/sim_height")) #y-direction
 		self.sim_height = int(self.real_upper[2])
 
-		#self.gridworld = ex.GridWorldExpanded(self.sim_length, self.sim_width)
-		#self.dest_list = [self.gridworld.coor_to_state(g[0], g[1]) for g in self.human_goals]
-		#self.betas = [0.2, 0.5, 1, 1.5, 3, 5, 8]
+		self.res = rospy.get_param("pred/resolution")
 		self.fwd_tsteps = rospy.get_param("pred/fwd_tsteps")
 		self.collision_threshold = rospy.get_param("pred/prob_thresh")
 		self.tracking_error_bounds = rospy.get_param("stp/tracking_error_bounds")
@@ -120,8 +111,6 @@ class STP_Human:
 
 		self.delta_t = rospy.get_param("stp/delta_t")
 		self.global_time = 0
-
-		#self.obstacle_traj = []
 
 
 
@@ -156,13 +145,13 @@ class STP_Human:
 
 
 	def sim_to_real_coord(self, sim_coord):
-		return (sim_coord[0] * (float(self.real_length)/self.sim_length) + self.real_lower[0], \
-			sim_coord[1] * (float(self.real_width)/self.sim_width) + self.real_lower[1])
+		return (sim_coord[0] * self.res + self.real_lower[0], \
+			self.real_upper[1] - sim_coord[1] * self.res)
 
 
 	def real_to_sim_coord(self, real_coord):
-		return ((real_coord[0] - self.real_lower[0]) * (float(self.sim_length)/self.real_length), \
-			(real_coord[1] - self.real_lower[1]) * (float(self.sim_width)/self.real_width))
+		return ((real_coord[0] - self.real_lower[0]) * (1/self.res), \
+			(self.real_upper[1] - real_coord[1]) * (1/self.res))
 
 
 	def pose_to_marker(self, pose, r, g, b, alpha):
@@ -176,9 +165,9 @@ class STP_Human:
 		marker_pose.pose.position.x = x
 		marker_pose.pose.position.y = y
 		marker_pose.pose.position.z = pose.z
-		marker_pose.scale.x = 0.3
-		marker_pose.scale.y = 0.3
-		marker_pose.scale.z = 0.3
+		marker_pose.scale.x = 2 * ((self.res/2) + (self.tracking_error_bounds[0] * self.res))
+		marker_pose.scale.y = 2 * ((self.res/2) + (self.tracking_error_bounds[0] * self.res))
+		marker_pose.scale.z = 2 * ((self.res/2) + (self.tracking_error_bounds[0] * self.res))
 		marker_pose.color.r = r
 		marker_pose.color.g = g
 		marker_pose.color.b = b
@@ -194,9 +183,9 @@ class STP_Human:
 		marker.type = marker.SPHERE_LIST
 		marker.action = marker.ADD
 		marker.pose.orientation.w = 1
-		marker.scale.x = 0.3
-		marker.scale.y = 0.3
-		marker.scale.z = 0.3
+		marker.scale.x = self.res
+		marker.scale.y = self.res
+		marker.scale.z = self.res
 		marker.color.r = r
 		marker.color.g = g
 		marker.color.b = b
@@ -242,22 +231,28 @@ class STP_Human:
 		"""
 		Converts occugrid message into structure
 		"""
-		occupancy_grids = [None]*self.fwd_tsteps
+		occupancy_grids = {}
+		tcount = 0
+		#occupancy_grids = [None]*self.fwd_tsteps
 
-		for i, grid in enumerate(msg.gridarray):
-			occupancy_grids[i] = grid.data
+		for i in range(len(msg.gridarray)):
+			if i > 0:
+				tcount += msg.gridarray[i].header.stamp.secs - msg.gridarray[i - 1].header.stamp.secs
+			occupancy_grids[tcount] = msg.gridarray[i].data
+		
+		#for i, grid in enumerate(msg.gridarray):
+			#occupancy_grids[i] = grid.data
 
 		return occupancy_grids
 
 
 
 	def occugrid_callback(self, msg):
-		#x = msg.x
-		#y = msg.y
-		#(x, y) = self.real_to_sim_coord((x, y))
 		occupancy_grids = self.from_ROSMsg(msg)
-		occupancy_grids_2D = [np.reshape(grid, (self.sim_length, self.sim_width)) for grid in occupancy_grids]
-		#occupancy_grids_2D = []
+		occupancy_grids_2D = {}
+		for time, grid in occupancy_grids.items():
+			occupancy_grids_2D[time] = np.reshape(grid, (self.sim_length, self.sim_width))
+		#occupancy_grids_2D = [np.reshape(grid, (self.sim_length, self.sim_width)) for grid in occupancy_grids]
 
 		pose0 = Point()
 		pose1 = Point()
@@ -291,44 +286,28 @@ class STP_Human:
 
 		if math.fabs(t - self.delta_t) < 0.1:	
 			self.global_time += t
-			#self.obstacle_traj.append((x, y))
-			#rospy.loginfo("Human is at (" + str(x) + "," + str(y) + ") at time " + str(self.global_time))
-			
 			for i in range(len(self.planners)):
 				rospy.loginfo("Robot " + str(i) + " is at (" + str(self.planners[i].curr_pos[0]) + \
 						"," + str(self.planners[i].curr_pos[1]) + "," + str(self.planners[i].curr_pos[2]) + \
 						") at time " + str(self.global_time))
 
-	
-			#(occupancy_grids, beta_occu, dest_beta_prob) = st.infer_joint(self.gridworld, 
-			#		self.dest_list, self.betas, T=self.fwd_tsteps, use_gridless=True, traj=self.obstacle_traj, verbose_return=True)
-			#occupancy_grids_2D = [np.reshape(grid, (self.sim_length, self.sim_width)) for grid in occupancy_grids]
-			#occupancy_grids_3D = {}
-			#for t in range(self.fwd_tsteps):
-			#	occupancy_grids_3D[t] = np.zeros((self.sim_length, self.sim_width, self.sim_height))
-			#	grid = occupancy_grids_2D[:][:][t]
-			#	for i in range(self.sim_length):
-			#		for j in range(self.sim_width):
-			#			for k in range(self.sim_height):
-			#				if k <= 2:
-			#					occupancy_grids_3D[t][i][j][k] = grid[i][j]
-			
-
 			obmaps = [occupancy_grids_2D, self.static_obs]
 			robot_trajs = []
 			robot0_traj = self.planners[0].plan_traj(self.robot_goals[0], obmaps, self.collision_threshold)
 			
-			#traj_str = ""
-			#for point in robot0_traj:
-			#	traj_str += str(point[0])
-			#	traj_str += ","
-			#	traj_str += str(point[1])
-			#	traj_str += ","
-			#	traj_str += str(point[2])
-			#	traj_str += " "
-			#	traj_str += str(point[3])
-			#	traj_str += " "
-			#self.debugger_pub.publish(traj_str)
+			
+			# DEBUGGING - PUBLISH ROBOT 0'S TRAJECTORY #
+			traj_str = ""
+			for point in robot0_traj:
+				traj_str += str(point[0])
+				traj_str += ","
+				traj_str += str(point[1])
+				traj_str += ","
+				traj_str += str(point[2])
+				traj_str += " "
+				traj_str += str(point[3])
+				traj_str += " "
+			self.debugger_pub.publish(traj_str)
 			
 			robot_trajs.append(robot0_traj)
 			obmaps.append(self.traj_to_obmap(robot0_traj, self.planners[0].robot_size, self.tracking_error_bounds[0]))
@@ -343,7 +322,6 @@ class STP_Human:
 		
 
 			self.time_counter = rospy.get_time()
-
 
 			
 

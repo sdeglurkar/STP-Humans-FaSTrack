@@ -1,9 +1,9 @@
 stp:
 
   num_robots: 1 #up to 3
-  #robot_starts: [[24, 10, 1], [5, 20, 1], [20, 15, 1]]
-  robot_starts: [[5, 5, 1], [5, 20, 1], [20, 15, 1]]
-  #robot_goals: [[13, 15, 0], [8, 2, 1], [17, 4, 1]] 
-  robot_goals: [[19, 19, 1], [8, 2, 1], [17, 4, 1]]
+  robot_starts: [[25, 12, 1], [5, 20, 1], [20, 15, 1]]
+  #robot_starts: [[5, 5, 1], [5, 20, 1], [20, 15, 1]]
+  robot_goals: [[13, 25, 1], [8, 2, 1], [17, 4, 1]] 
+  #robot_goals: [[15, 19, 1], [8, 2, 1], [17, 4, 1]]
   tracking_error_bounds: [0, 0, 0] #tracking_error_bounds[i] is the teb planner i plans with
   delta_t: 1
